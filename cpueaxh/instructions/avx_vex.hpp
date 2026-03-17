@@ -4280,6 +4280,29 @@ void execute_avx_vex(CPU_CONTEXT* ctx, uint8_t* code, size_t code_size) {
             }
             return;
         }
+        if (opcode == 0xDD) {
+            if (mandatory_prefix != 1) {
+                raise_ud();
+            }
+
+            DecodedInstruction inst = decode_avx_vex_modrm(ctx, code, code_size, &prefix);
+            int dest = avx_vex_dest_index(ctx, inst.modrm);
+            if (is_256) {
+                AVXRegister256 state = get_ymm256(ctx, avx_vex_source1_index(&prefix));
+                AVXRegister256 round_key = read_avx_rm256(ctx, &inst);
+                AVXRegister256 result = {};
+                result.low = apply_aesenclast128(state.low, round_key.low);
+                result.high = apply_aesenclast128(state.high, round_key.high);
+                set_ymm256(ctx, dest, result);
+            }
+            else {
+                XMMRegister state = get_xmm128(ctx, avx_vex_source1_index(&prefix));
+                XMMRegister round_key = read_avx_int_rm128(ctx, &inst);
+                set_xmm128(ctx, dest, apply_aesenclast128(state, round_key));
+                clear_ymm_upper128(ctx, dest);
+            }
+            return;
+        }
         if (opcode == 0x00) {
             if (mandatory_prefix != 1) {
                 raise_ud();

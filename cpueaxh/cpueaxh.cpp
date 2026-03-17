@@ -866,6 +866,15 @@ extern "C" cpueaxh_err cpueaxh_reg_read(cpueaxh_engine* engine, int regid, void*
     return cpueaxh_reg_read_raw(&engine->context, regid, value);
 }
 
+extern "C" cpueaxh_err cpueaxh_set_processor_id(cpueaxh_engine* engine, uint32_t processor_id) {
+    cpueaxh_err error = cpueaxh_validate_engine(engine);
+    if (error != CPUEAXH_ERR_OK) {
+        return error;
+    }
+    engine->context.processor_id = processor_id;
+    return CPUEAXH_ERR_OK;
+}
+
 extern "C" cpueaxh_err cpueaxh_emu_start(cpueaxh_engine* engine, uint64_t begin, uint64_t until, uint64_t timeout, size_t count) {
     (void)timeout;
     cpueaxh_err error = cpueaxh_validate_engine(engine);

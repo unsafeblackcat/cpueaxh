@@ -391,6 +391,9 @@ int cpu_step(CPU_CONTEXT* ctx) {
     else if (opc == 0x0FB0 || opc == 0x0FB1) {
         execute_cmpxchg(ctx, buf, (size_t)fetched);
     }
+    else if (opc == 0x0FC7 && is_rdpid_instruction(buf, (size_t)fetched, prefix_len)) {
+        execute_rdpid(ctx, buf, (size_t)fetched);
+    }
     else if (opc == 0x0FC7) {
         if (is_rdrand_instruction(buf, (size_t)fetched)) {
             raise_ud();

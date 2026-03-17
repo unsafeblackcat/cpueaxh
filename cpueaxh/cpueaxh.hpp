@@ -205,6 +205,7 @@ cpueaxh_err cpueaxh_mem_patch_del(cpueaxh_engine* engine, cpueaxh_mem_patch_hand
 
 cpueaxh_err cpueaxh_reg_write(cpueaxh_engine* engine, int regid, const void* value);
 cpueaxh_err cpueaxh_reg_read(cpueaxh_engine* engine, int regid, void* value);
+cpueaxh_err cpueaxh_set_processor_id(cpueaxh_engine* engine, uint32_t processor_id);
 
 cpueaxh_err cpueaxh_emu_start(cpueaxh_engine* engine, uint64_t begin, uint64_t until, uint64_t timeout, size_t count);
 cpueaxh_err cpueaxh_emu_start_function(cpueaxh_engine* engine, uint64_t begin, uint64_t timeout, size_t count);

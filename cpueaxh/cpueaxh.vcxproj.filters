@@ -183,6 +183,9 @@
     <ClInclude Include="instructions\pushf.hpp">
       <Filter>instructions</Filter>
     </ClInclude>
+    <ClInclude Include="instructions\rdpid.hpp">
+      <Filter>instructions</Filter>
+    </ClInclude>
     <ClInclude Include="instructions\rdtsc.hpp">
       <Filter>instructions</Filter>
     </ClInclude>

@@ -131,6 +131,7 @@ struct XMMRegister {
 struct CPU_CONTEXT {
     uint64_t regs[16];
     uint64_t control_regs[16];
+    uint32_t processor_id;
     XMMRegister xmm[16];
     XMMRegister ymm_upper[16];
     uint64_t mm[8];

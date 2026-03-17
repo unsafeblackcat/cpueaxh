@@ -100,6 +100,7 @@
 #include "instructions/bsf.hpp"
 #include "instructions/bswap.hpp"
 #include "instructions/endbr.hpp"
+#include "instructions/rdpid.hpp"
 #include "instructions/rdtsc.hpp"
 #include "instructions/rdtscp.hpp"
 #include "instructions/rdssp.hpp"

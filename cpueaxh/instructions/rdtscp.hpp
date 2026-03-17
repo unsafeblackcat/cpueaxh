@@ -76,5 +76,5 @@ void execute_rdtscp(CPU_CONTEXT* ctx, uint8_t* code, size_t code_size) {
     unsigned __int64 tsc = __rdtscp(&tsc_aux);
     set_reg32(ctx, REG_RAX, (uint32_t)(tsc & 0xFFFFFFFFULL));
     set_reg32(ctx, REG_RDX, (uint32_t)(tsc >> 32));
-    set_reg32(ctx, REG_RCX, tsc_aux);
+    set_reg32(ctx, REG_RCX, ctx->processor_id);
 }

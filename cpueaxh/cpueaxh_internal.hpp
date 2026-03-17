@@ -46,6 +46,7 @@
 #include "instructions/xorps.hpp"
 #include "instructions/aesenc.hpp"
 #include "instructions/aeskeygenassist.hpp"
+#include "instructions/pshufb.hpp"
 #include "instructions/avx_vex.hpp"
 #include "instructions/not.hpp"
 #include "instructions/neg.hpp"

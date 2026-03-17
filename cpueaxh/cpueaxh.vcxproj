@@ -174,6 +174,7 @@
     <ClInclude Include="instructions\or.hpp" />
     <ClInclude Include="instructions\pause.hpp" />
     <ClInclude Include="instructions\pop.hpp" />
+    <ClInclude Include="instructions\pshufb.hpp" />
     <ClInclude Include="instructions\push.hpp" />
     <ClInclude Include="instructions\pushf.hpp" />
     <ClInclude Include="instructions\rdtsc.hpp" />

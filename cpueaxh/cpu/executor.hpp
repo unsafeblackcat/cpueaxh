@@ -257,7 +257,7 @@ int cpu_step(CPU_CONTEXT* ctx) {
     else if ((opc == 0x0FDB || opc == 0x0FDF || opc == 0x0FEB || opc == 0x0FEF) && mandatory_prefix == 0x66) {
         execute_sse2_int_logic(ctx, buf, (size_t)fetched);
     }
-    else if (opc == 0x0FDC && mandatory_prefix == 0x66) {
+    else if (opc == 0x0F38 && mandatory_prefix == 0x66 && is_aesenc_instruction(buf, fetched, prefix_len)) {
         execute_aesenc(ctx, buf, (size_t)fetched);
     }
     else if ((opc == 0x0F71 || opc == 0x0F72 || opc == 0x0F73 ||

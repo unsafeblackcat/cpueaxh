@@ -542,9 +542,6 @@ static cpueaxh_err cpueaxh_apply_memory_mode(cpueaxh_engine* engine, uint32_t me
         &engine->memory_manager,
         MM_PROT_READ | MM_PROT_WRITE | MM_PROT_EXEC,
         memory_mode == CPUEAXH_MEMORY_MODE_HOST);
-    if (memory_mode != CPUEAXH_MEMORY_MODE_HOST) {
-        mm_set_host_write_isolation(&engine->memory_manager, false);
-    }
     return CPUEAXH_ERR_OK;
 }
 
@@ -980,81 +977,6 @@ extern "C" cpueaxh_err cpueaxh_set_memory_mode(cpueaxh_engine* engine, uint32_t 
     }
 
     return cpueaxh_apply_memory_mode(engine, memory_mode);
-}
-
-extern "C" cpueaxh_err cpueaxh_host_write_isolation_set(cpueaxh_engine* engine, uint32_t enabled) {
-    cpueaxh_err error = cpueaxh_validate_engine(engine);
-    if (error != CPUEAXH_ERR_OK) {
-        return error;
-    }
-    if (engine->memory_mode != CPUEAXH_MEMORY_MODE_HOST) {
-        return CPUEAXH_ERR_MODE;
-    }
-
-    if (!mm_set_host_write_isolation(&engine->memory_manager, enabled != 0)) {
-        return CPUEAXH_ERR_NOMEM;
-    }
-    return CPUEAXH_ERR_OK;
-}
-
-extern "C" cpueaxh_err cpueaxh_host_write_isolation_group_create(cpueaxh_engine* engine, cpueaxh_write_isolation_handle* out_group) {
-    cpueaxh_err error = cpueaxh_validate_engine(engine);
-    if (error != CPUEAXH_ERR_OK || !out_group) {
-        return error != CPUEAXH_ERR_OK ? error : CPUEAXH_ERR_ARG;
-    }
-    if (engine->memory_mode != CPUEAXH_MEMORY_MODE_HOST) {
-        return CPUEAXH_ERR_MODE;
-    }
-
-    return mm_host_write_isolation_group_create(&engine->memory_manager, out_group) ? CPUEAXH_ERR_OK : CPUEAXH_ERR_NOMEM;
-}
-
-extern "C" cpueaxh_err cpueaxh_host_write_isolation_group_select(cpueaxh_engine* engine, cpueaxh_write_isolation_handle group) {
-    cpueaxh_err error = cpueaxh_validate_engine(engine);
-    if (error != CPUEAXH_ERR_OK || group == 0) {
-        return error != CPUEAXH_ERR_OK ? error : CPUEAXH_ERR_ARG;
-    }
-    if (engine->memory_mode != CPUEAXH_MEMORY_MODE_HOST) {
-        return CPUEAXH_ERR_MODE;
-    }
-
-    return mm_host_write_isolation_group_select(&engine->memory_manager, group) ? CPUEAXH_ERR_OK : CPUEAXH_ERR_ARG;
-}
-
-extern "C" cpueaxh_err cpueaxh_host_write_isolation_group_delete(cpueaxh_engine* engine, cpueaxh_write_isolation_handle group) {
-    cpueaxh_err error = cpueaxh_validate_engine(engine);
-    if (error != CPUEAXH_ERR_OK || group == 0) {
-        return error != CPUEAXH_ERR_OK ? error : CPUEAXH_ERR_ARG;
-    }
-    if (engine->memory_mode != CPUEAXH_MEMORY_MODE_HOST) {
-        return CPUEAXH_ERR_MODE;
-    }
-
-    return mm_host_write_isolation_group_delete(&engine->memory_manager, group) ? CPUEAXH_ERR_OK : CPUEAXH_ERR_ARG;
-}
-
-extern "C" cpueaxh_err cpueaxh_host_write_isolation_exempt_add(cpueaxh_engine* engine, uint64_t address, size_t size) {
-    cpueaxh_err error = cpueaxh_validate_engine(engine);
-    if (error != CPUEAXH_ERR_OK || size == 0 || mm_range_overflows(address, (uint64_t)size)) {
-        return error != CPUEAXH_ERR_OK ? error : CPUEAXH_ERR_ARG;
-    }
-    if (engine->memory_mode != CPUEAXH_MEMORY_MODE_HOST) {
-        return CPUEAXH_ERR_MODE;
-    }
-
-    return mm_add_host_write_isolation_exempt(&engine->memory_manager, address, (uint64_t)size) ? CPUEAXH_ERR_OK : CPUEAXH_ERR_NOMEM;
-}
-
-extern "C" cpueaxh_err cpueaxh_host_write_isolation_exempt_del(cpueaxh_engine* engine, uint64_t address, size_t size) {
-    cpueaxh_err error = cpueaxh_validate_engine(engine);
-    if (error != CPUEAXH_ERR_OK || size == 0) {
-        return error != CPUEAXH_ERR_OK ? error : CPUEAXH_ERR_ARG;
-    }
-    if (engine->memory_mode != CPUEAXH_MEMORY_MODE_HOST) {
-        return CPUEAXH_ERR_MODE;
-    }
-
-    return mm_del_host_write_isolation_exempt(&engine->memory_manager, address, (uint64_t)size) ? CPUEAXH_ERR_OK : CPUEAXH_ERR_ARG;
 }
 
 extern "C" cpueaxh_err cpueaxh_mem_map(cpueaxh_engine* engine, uint64_t address, size_t size, uint32_t perms) {

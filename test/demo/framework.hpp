@@ -44,8 +44,6 @@ constexpr std::uint64_t kBitTestMask = kFlagCF;
 constexpr std::uint64_t kBitScanMask = kFlagZF;
 constexpr std::uint64_t kSeedCount = 128;
 constexpr std::uint64_t kExceptionSeedCount = 128;
-constexpr std::uint64_t kHostIsolationSeedCount = 64;
-constexpr std::uint64_t kHostIsolationGroupSeedCount = 32;
 constexpr std::uint64_t kHostStackSeedCount = 64;
 constexpr std::uint64_t kContextApiSeedCount = 128;
 constexpr std::uint64_t kGuestCodeBase = 0x100000;
@@ -2677,13 +2675,11 @@ inline bool run_manual_exception_case_public(
 }
 
 inline bool emit_host_mov_reg_imm64(std::vector<std::uint8_t>& code, std::uint8_t reg_low3, std::uint64_t imm);
-inline bool run_host_write_isolation_case(const std::string& name, std::uint64_t seed, Failure& failure);
-inline bool run_host_write_isolation_groups_case(const std::string& name, std::uint64_t seed, Failure& failure);
 inline bool run_host_stack_roundtrip_case(const std::string& name, std::uint64_t seed, Failure& failure);
 
 inline std::uint64_t manual_special_case_count(const HostFeatures& features) {
     (void)features;
-    return kSeedCount * 6ull + kExceptionSeedCount * 8ull + kHostIsolationSeedCount + kHostIsolationGroupSeedCount + kHostStackSeedCount + kContextApiSeedCount;
+    return kSeedCount * 6ull + kExceptionSeedCount * 8ull + kHostStackSeedCount + kContextApiSeedCount;
 }
 
 inline bool run_manual_special_tests(const HostFeatures& features, std::uint64_t& executed, std::uint64_t total) {
@@ -2753,28 +2749,16 @@ inline bool run_manual_special_tests(const HostFeatures& features, std::uint64_t
         if (!tick(run_manual_exception_case("rdpid_66_ud:" + std::to_string(seed6), invalid_rdpid_with_66, seed6, CPUEAXH_EXCEPTION_UD, failure), failure)) return false;
     }
 
-    for (std::uint64_t seed_index = 0; seed_index < kHostIsolationSeedCount; ++seed_index) {
-        Failure failure;
-        const std::uint64_t seed7 = seeded(seed_index, 0xE101);
-        if (!tick(run_host_write_isolation_case("host_write_isolation:" + std::to_string(seed7), seed7, failure), failure)) return false;
-    }
-
-    for (std::uint64_t seed_index = 0; seed_index < kHostIsolationGroupSeedCount; ++seed_index) {
-        Failure failure;
-        const std::uint64_t seed8 = seeded(seed_index, 0xE201);
-        if (!tick(run_host_write_isolation_groups_case("host_write_isolation_groups:" + std::to_string(seed8), seed8, failure), failure)) return false;
-    }
-
     for (std::uint64_t seed_index = 0; seed_index < kHostStackSeedCount; ++seed_index) {
         Failure failure;
-        const std::uint64_t seed9 = seeded(seed_index, 0xE251);
-        if (!tick(run_host_stack_roundtrip_case("host_stack_roundtrip:" + std::to_string(seed9), seed9, failure), failure)) return false;
+        const std::uint64_t seed7 = seeded(seed_index, 0xE251);
+        if (!tick(run_host_stack_roundtrip_case("host_stack_roundtrip:" + std::to_string(seed7), seed7, failure), failure)) return false;
     }
 
     for (std::uint64_t seed_index = 0; seed_index < kContextApiSeedCount; ++seed_index) {
         Failure failure;
-        const std::uint64_t seed10 = seeded(seed_index, 0xE301);
-        if (!tick(run_context_api_case("context_api:" + std::to_string(seed10), seed10, failure), failure)) return false;
+        const std::uint64_t seed8 = seeded(seed_index, 0xE301);
+        if (!tick(run_context_api_case("context_api:" + std::to_string(seed8), seed8, failure), failure)) return false;
     }
 
     return true;
@@ -2790,359 +2774,6 @@ inline bool emit_host_mov_reg_imm64(std::vector<std::uint8_t>& code, std::uint8_
         code.push_back(static_cast<std::uint8_t>((imm >> shift) & 0xFFu));
     }
     return true;
-}
-
-inline bool run_host_write_isolation_case(const std::string& name, std::uint64_t seed, Failure& failure) {
-    cpueaxh_engine* engine = nullptr;
-    std::uint8_t* code_page = nullptr;
-    std::uint8_t* stack_page = nullptr;
-    std::uint8_t* data_pages = nullptr;
-
-    cpueaxh_err err = cpueaxh_open(CPUEAXH_ARCH_X86, CPUEAXH_MODE_64, &engine);
-    if (err != CPUEAXH_ERR_OK) {
-        failure.case_name = name;
-        failure.detail = "cpueaxh_open failed";
-        return false;
-    }
-
-    bool ok = false;
-    do {
-        code_page = static_cast<std::uint8_t*>(::VirtualAlloc(nullptr, kCodePageSize, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE));
-        stack_page = static_cast<std::uint8_t*>(::VirtualAlloc(nullptr, kStackSize, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE));
-        data_pages = static_cast<std::uint8_t*>(::VirtualAlloc(nullptr, kCodePageSize * 3, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE));
-        if (!code_page || !stack_page || !data_pages) {
-            failure.case_name = name;
-            failure.detail = "VirtualAlloc failed";
-            break;
-        }
-
-        std::memset(code_page, 0xCC, kCodePageSize);
-        std::memset(stack_page, 0, kStackSize);
-        std::memset(data_pages, 0, kCodePageSize * 3);
-
-        std::uint8_t* isolated_page = data_pages;
-        std::uint8_t* exempt_page0 = data_pages + kCodePageSize;
-        std::uint8_t* exempt_page1 = data_pages + kCodePageSize * 2;
-
-        const std::uint8_t isolated_initial = narrow8(seeded(seed, 0xF001));
-        const std::uint8_t exempt_initial0 = narrow8(seeded(seed, 0xF002));
-        const std::uint8_t exempt_initial1 = narrow8(seeded(seed, 0xF003));
-        const std::uint8_t isolated_write = narrow8(seeded(seed, 0xF101)) | 1u;
-        const std::uint8_t exempt_write0 = narrow8(seeded(seed, 0xF102)) | 1u;
-        const std::uint8_t exempt_write1 = narrow8(seeded(seed, 0xF103)) | 1u;
-
-        isolated_page[0] = isolated_initial;
-        exempt_page0[0] = exempt_initial0;
-        exempt_page1[0] = exempt_initial1;
-
-        std::vector<std::uint8_t> code;
-        if (!emit_host_mov_reg_imm64(code, 3, reinterpret_cast<std::uint64_t>(isolated_page)) ||
-            !emit_host_mov_reg_imm64(code, 1, reinterpret_cast<std::uint64_t>(exempt_page0)) ||
-            !emit_host_mov_reg_imm64(code, 2, reinterpret_cast<std::uint64_t>(exempt_page1))) {
-            failure.case_name = name;
-            failure.detail = "code emit failed";
-            break;
-        }
-
-        code.push_back(0xC6); code.push_back(0x03); code.push_back(isolated_write);
-        code.push_back(0x31); code.push_back(0xC0);
-        code.push_back(0x8A); code.push_back(0x03);
-        code.push_back(0xC6); code.push_back(0x01); code.push_back(exempt_write0);
-        code.push_back(0xC6); code.push_back(0x02); code.push_back(exempt_write1);
-        code.push_back(0xC3);
-
-        std::memcpy(code_page, code.data(), code.size());
-
-        err = cpueaxh_set_memory_mode(engine, CPUEAXH_MEMORY_MODE_HOST);
-        if (err != CPUEAXH_ERR_OK) {
-            failure.case_name = name;
-            failure.detail = "cpueaxh_set_memory_mode(host) failed";
-            break;
-        }
-        err = cpueaxh_host_write_isolation_set(engine, 1);
-        if (err != CPUEAXH_ERR_OK) {
-            failure.case_name = name;
-            failure.detail = "cpueaxh_host_write_isolation_set failed";
-            break;
-        }
-        err = cpueaxh_host_write_isolation_exempt_add(engine, reinterpret_cast<std::uint64_t>(exempt_page0), kCodePageSize);
-        if (err != CPUEAXH_ERR_OK) {
-            failure.case_name = name;
-            failure.detail = "cpueaxh_host_write_isolation_exempt_add 0 failed";
-            break;
-        }
-        err = cpueaxh_host_write_isolation_exempt_add(engine, reinterpret_cast<std::uint64_t>(exempt_page1), kCodePageSize);
-        if (err != CPUEAXH_ERR_OK) {
-            failure.case_name = name;
-            failure.detail = "cpueaxh_host_write_isolation_exempt_add 1 failed";
-            break;
-        }
-
-        std::uint64_t rsp = reinterpret_cast<std::uint64_t>(stack_page) + kStackSize - 0x80 - sizeof(std::uint64_t);
-        *reinterpret_cast<std::uint64_t*>(rsp) = 0;
-        std::uint64_t rbp = rsp;
-        std::uint64_t rip = reinterpret_cast<std::uint64_t>(code_page);
-        std::uint64_t rax = 0;
-        cpueaxh_reg_write(engine, CPUEAXH_X86_REG_RSP, &rsp);
-        cpueaxh_reg_write(engine, CPUEAXH_X86_REG_RBP, &rbp);
-        cpueaxh_reg_write(engine, CPUEAXH_X86_REG_RIP, &rip);
-        cpueaxh_reg_write(engine, CPUEAXH_X86_REG_RAX, &rax);
-
-        err = cpueaxh_emu_start_function(engine, 0, 0, 1024);
-        if (err != CPUEAXH_ERR_OK || cpueaxh_code_exception(engine) != CPUEAXH_EXCEPTION_NONE) {
-            failure.case_name = name;
-            failure.detail = "host isolation execution failed";
-            break;
-        }
-
-        if (isolated_page[0] != isolated_initial) {
-            failure.case_name = name;
-            failure.detail = "isolated host memory changed unexpectedly";
-            break;
-        }
-        if (exempt_page0[0] != exempt_write0 || exempt_page1[0] != exempt_write1) {
-            failure.case_name = name;
-            failure.detail = "exempt host memory did not update";
-            break;
-        }
-
-        std::uint8_t isolated_observed = 0;
-        err = cpueaxh_mem_read(engine, reinterpret_cast<std::uint64_t>(isolated_page), &isolated_observed, sizeof(isolated_observed));
-        if (err != CPUEAXH_ERR_OK || isolated_observed != isolated_write) {
-            failure.case_name = name;
-            failure.detail = "isolated readback mismatch";
-            break;
-        }
-
-        std::uint8_t exempt_observed0 = 0;
-        std::uint8_t exempt_observed1 = 0;
-        err = cpueaxh_mem_read(engine, reinterpret_cast<std::uint64_t>(exempt_page0), &exempt_observed0, sizeof(exempt_observed0));
-        if (err != CPUEAXH_ERR_OK || exempt_observed0 != exempt_write0) {
-            failure.case_name = name;
-            failure.detail = "exempt readback 0 mismatch";
-            break;
-        }
-        err = cpueaxh_mem_read(engine, reinterpret_cast<std::uint64_t>(exempt_page1), &exempt_observed1, sizeof(exempt_observed1));
-        if (err != CPUEAXH_ERR_OK || exempt_observed1 != exempt_write1) {
-            failure.case_name = name;
-            failure.detail = "exempt readback 1 mismatch";
-            break;
-        }
-
-        std::uint64_t observed_rax = 0;
-        if (!read_engine_reg(engine, CPUEAXH_X86_REG_RAX, observed_rax) || static_cast<std::uint8_t>(observed_rax & 0xFFu) != isolated_write) {
-            failure.case_name = name;
-            failure.detail = "write-after-read register mismatch";
-            break;
-        }
-
-        ok = true;
-    } while (false);
-
-    if (data_pages) {
-        ::VirtualFree(data_pages, 0, MEM_RELEASE);
-    }
-    if (stack_page) {
-        ::VirtualFree(stack_page, 0, MEM_RELEASE);
-    }
-    if (code_page) {
-        ::VirtualFree(code_page, 0, MEM_RELEASE);
-    }
-    if (engine) {
-        cpueaxh_close(engine);
-    }
-    return ok;
-}
-
-inline bool run_host_write_isolation_groups_case(const std::string& name, std::uint64_t seed, Failure& failure) {
-    cpueaxh_engine* engine = nullptr;
-    std::uint8_t* code_page = nullptr;
-    std::uint8_t* stack_page = nullptr;
-    std::uint8_t* data_page = nullptr;
-
-    auto run_program = [&](std::uint8_t write_value, std::uint8_t expected_value) -> bool {
-        std::vector<std::uint8_t> code;
-        if (!emit_host_mov_reg_imm64(code, 3, reinterpret_cast<std::uint64_t>(data_page))) {
-            failure.case_name = name;
-            failure.detail = "group code emit failed";
-            return false;
-        }
-        code.push_back(0xC6); code.push_back(0x03); code.push_back(write_value);
-        code.push_back(0x31); code.push_back(0xC0);
-        code.push_back(0x8A); code.push_back(0x03);
-        code.push_back(0xC3);
-        std::memset(code_page, 0xCC, kCodePageSize);
-        std::memcpy(code_page, code.data(), code.size());
-
-        std::uint64_t rsp = reinterpret_cast<std::uint64_t>(stack_page) + kStackSize - 0x80 - sizeof(std::uint64_t);
-        *reinterpret_cast<std::uint64_t*>(rsp) = 0;
-        std::uint64_t rbp = rsp;
-        std::uint64_t rip = reinterpret_cast<std::uint64_t>(code_page);
-        std::uint64_t rax = 0;
-        if (cpueaxh_reg_write(engine, CPUEAXH_X86_REG_RSP, &rsp) != CPUEAXH_ERR_OK ||
-            cpueaxh_reg_write(engine, CPUEAXH_X86_REG_RBP, &rbp) != CPUEAXH_ERR_OK ||
-            cpueaxh_reg_write(engine, CPUEAXH_X86_REG_RIP, &rip) != CPUEAXH_ERR_OK ||
-            cpueaxh_reg_write(engine, CPUEAXH_X86_REG_RAX, &rax) != CPUEAXH_ERR_OK) {
-            failure.case_name = name;
-            failure.detail = "group register initialization failed";
-            return false;
-        }
-
-        cpueaxh_err err = cpueaxh_emu_start_function(engine, 0, 0, 1024);
-        if (err != CPUEAXH_ERR_OK || cpueaxh_code_exception(engine) != CPUEAXH_EXCEPTION_NONE) {
-            failure.case_name = name;
-            failure.detail = "group execution failed";
-            return false;
-        }
-
-        std::uint64_t observed_rax = 0;
-        if (!read_engine_reg(engine, CPUEAXH_X86_REG_RAX, observed_rax) || static_cast<std::uint8_t>(observed_rax & 0xFFu) != expected_value) {
-            failure.case_name = name;
-            failure.detail = "group register result mismatch";
-            return false;
-        }
-        return true;
-    };
-
-    cpueaxh_err err = cpueaxh_open(CPUEAXH_ARCH_X86, CPUEAXH_MODE_64, &engine);
-    if (err != CPUEAXH_ERR_OK) {
-        failure.case_name = name;
-        failure.detail = "cpueaxh_open failed";
-        return false;
-    }
-
-    bool ok = false;
-    do {
-        code_page = static_cast<std::uint8_t*>(::VirtualAlloc(nullptr, kCodePageSize, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE));
-        stack_page = static_cast<std::uint8_t*>(::VirtualAlloc(nullptr, kStackSize, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE));
-        data_page = static_cast<std::uint8_t*>(::VirtualAlloc(nullptr, kCodePageSize, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE));
-        if (!code_page || !stack_page || !data_page) {
-            failure.case_name = name;
-            failure.detail = "group VirtualAlloc failed";
-            break;
-        }
-
-        std::memset(code_page, 0xCC, kCodePageSize);
-        std::memset(stack_page, 0, kStackSize);
-        std::memset(data_page, 0, kCodePageSize);
-
-        const std::uint8_t initial = narrow8(seeded(seed, 0x6201));
-        const std::uint8_t value0 = narrow8(seeded(seed, 0x6202)) | 1u;
-        const std::uint8_t value1 = narrow8(seeded(seed, 0x6203)) | 1u;
-        data_page[0] = initial;
-
-        err = cpueaxh_set_memory_mode(engine, CPUEAXH_MEMORY_MODE_HOST);
-        if (err != CPUEAXH_ERR_OK) {
-            failure.case_name = name;
-            failure.detail = "group set_memory_mode failed";
-            break;
-        }
-        err = cpueaxh_host_write_isolation_set(engine, 1);
-        if (err != CPUEAXH_ERR_OK) {
-            failure.case_name = name;
-            failure.detail = "group isolation enable failed";
-            break;
-        }
-
-        cpueaxh_write_isolation_handle group0 = 0;
-        cpueaxh_write_isolation_handle group1 = 0;
-        err = cpueaxh_host_write_isolation_group_create(engine, &group0);
-        if (err != CPUEAXH_ERR_OK) {
-            failure.case_name = name;
-            failure.detail = "group create 0 failed";
-            break;
-        }
-        err = cpueaxh_host_write_isolation_group_create(engine, &group1);
-        if (err != CPUEAXH_ERR_OK) {
-            failure.case_name = name;
-            failure.detail = "group create 1 failed";
-            break;
-        }
-
-        if (cpueaxh_host_write_isolation_group_select(engine, group0) != CPUEAXH_ERR_OK || !run_program(value0, value0)) {
-            break;
-        }
-
-        if (data_page[0] != initial) {
-            failure.case_name = name;
-            failure.detail = "group 0 changed host memory unexpectedly";
-            break;
-        }
-
-        std::uint8_t observed = 0;
-        if (cpueaxh_mem_read(engine, reinterpret_cast<std::uint64_t>(data_page), &observed, sizeof(observed)) != CPUEAXH_ERR_OK || observed != value0) {
-            failure.case_name = name;
-            failure.detail = "group 0 readback mismatch";
-            break;
-        }
-
-        if (cpueaxh_host_write_isolation_group_select(engine, group1) != CPUEAXH_ERR_OK) {
-            failure.case_name = name;
-            failure.detail = "group select 1 failed";
-            break;
-        }
-        if (cpueaxh_mem_read(engine, reinterpret_cast<std::uint64_t>(data_page), &observed, sizeof(observed)) != CPUEAXH_ERR_OK || observed != initial) {
-            failure.case_name = name;
-            failure.detail = "group 1 initial view mismatch";
-            break;
-        }
-        if (!run_program(value1, value1)) {
-            break;
-        }
-        if (cpueaxh_mem_read(engine, reinterpret_cast<std::uint64_t>(data_page), &observed, sizeof(observed)) != CPUEAXH_ERR_OK || observed != value1) {
-            failure.case_name = name;
-            failure.detail = "group 1 readback mismatch";
-            break;
-        }
-
-        if (cpueaxh_host_write_isolation_group_select(engine, group0) != CPUEAXH_ERR_OK) {
-            failure.case_name = name;
-            failure.detail = "group reselect 0 failed";
-            break;
-        }
-        if (cpueaxh_mem_read(engine, reinterpret_cast<std::uint64_t>(data_page), &observed, sizeof(observed)) != CPUEAXH_ERR_OK || observed != value0) {
-            failure.case_name = name;
-            failure.detail = "group 0 persisted view mismatch";
-            break;
-        }
-
-        if (cpueaxh_host_write_isolation_group_delete(engine, group0) != CPUEAXH_ERR_OK) {
-            failure.case_name = name;
-            failure.detail = "group delete 0 failed";
-            break;
-        }
-        if (cpueaxh_host_write_isolation_group_select(engine, group1) != CPUEAXH_ERR_OK) {
-            failure.case_name = name;
-            failure.detail = "group select surviving group failed";
-            break;
-        }
-        if (cpueaxh_mem_read(engine, reinterpret_cast<std::uint64_t>(data_page), &observed, sizeof(observed)) != CPUEAXH_ERR_OK || observed != value1) {
-            failure.case_name = name;
-            failure.detail = "surviving group view mismatch";
-            break;
-        }
-        if (data_page[0] != initial) {
-            failure.case_name = name;
-            failure.detail = "group delete changed host memory unexpectedly";
-            break;
-        }
-
-        ok = true;
-    } while (false);
-
-    if (data_page) {
-        ::VirtualFree(data_page, 0, MEM_RELEASE);
-    }
-    if (stack_page) {
-        ::VirtualFree(stack_page, 0, MEM_RELEASE);
-    }
-    if (code_page) {
-        ::VirtualFree(code_page, 0, MEM_RELEASE);
-    }
-    if (engine) {
-        cpueaxh_close(engine);
-    }
-    return ok;
 }
 
 inline bool run_host_stack_roundtrip_case(const std::string& name, std::uint64_t seed, Failure& failure) {

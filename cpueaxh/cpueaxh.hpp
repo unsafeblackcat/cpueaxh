@@ -20,7 +20,6 @@ typedef struct cpueaxh_engine cpueaxh_engine;
 typedef uint64_t cpueaxh_hook;
 typedef uint64_t cpueaxh_mem_patch_handle;
 typedef uint64_t cpueaxh_escape_handle;
-typedef uint64_t cpueaxh_write_isolation_handle;
 typedef uint32_t cpueaxh_escape_insn_id;
 typedef cpueaxh_escape_insn_id cpueaxh_insn_id;
 typedef void (*cpueaxh_cb_hookcode_t)(cpueaxh_engine* engine, uint64_t address, void* user_data);
@@ -310,12 +309,6 @@ cpueaxh_err cpueaxh_open(uint32_t arch, uint32_t mode, cpueaxh_engine** out_engi
 void cpueaxh_close(cpueaxh_engine* engine);
 
 cpueaxh_err cpueaxh_set_memory_mode(cpueaxh_engine* engine, uint32_t memory_mode);
-cpueaxh_err cpueaxh_host_write_isolation_set(cpueaxh_engine* engine, uint32_t enabled);
-cpueaxh_err cpueaxh_host_write_isolation_group_create(cpueaxh_engine* engine, cpueaxh_write_isolation_handle* out_group);
-cpueaxh_err cpueaxh_host_write_isolation_group_select(cpueaxh_engine* engine, cpueaxh_write_isolation_handle group);
-cpueaxh_err cpueaxh_host_write_isolation_group_delete(cpueaxh_engine* engine, cpueaxh_write_isolation_handle group);
-cpueaxh_err cpueaxh_host_write_isolation_exempt_add(cpueaxh_engine* engine, uint64_t address, size_t size);
-cpueaxh_err cpueaxh_host_write_isolation_exempt_del(cpueaxh_engine* engine, uint64_t address, size_t size);
 
 cpueaxh_err cpueaxh_mem_map(cpueaxh_engine* engine, uint64_t address, size_t size, uint32_t perms);
 cpueaxh_err cpueaxh_mem_map_ptr(cpueaxh_engine* engine, uint64_t address, size_t size, uint32_t perms, void* host_ptr);

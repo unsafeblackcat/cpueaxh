@@ -2698,7 +2698,7 @@ static uint64_t avx_vsib_base_address(CPU_CONTEXT* ctx, const DecodedInstruction
     }
 
     uint8_t raw_base = inst->sib & 0x07;
-    bool no_base = mod == 0x00 && raw_base == 0x05 && !(ctx->rex_b && inst->address_size == 64);
+    bool no_base = mod == 0x00 && raw_base == 0x05;
     uint64_t address = 0;
 
     if (no_base) {

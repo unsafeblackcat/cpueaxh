@@ -63,7 +63,7 @@ uint64_t calculate_lea_address(CPU_CONTEXT* ctx, uint8_t modrm, bool has_sib, ui
                 addr += read_lea_address_reg(ctx, index, address_size) << scale;
             }
         }
-        else if (mod == 0 && raw_rm == 5 && !(ctx->cs.descriptor.long_mode && ctx->rex_b)) {
+        else if (mod == 0 && raw_rm == 5) {
             if (address_size == 64) {
                 addr = next_rip + (uint64_t)(int64_t)(int32_t)disp;
             }

@@ -230,7 +230,7 @@ inline int cpu_default_segment_for_memory_operand(const CPU_CONTEXT* ctx, uint8_
             if (ctx && ctx->rex_b && long_mode) {
                 decoded_rm |= 0x08;
             }
-            if (!(mod == 0 && (rm & 0x07) == 5 && !(ctx && ctx->rex_b && long_mode)) &&
+            if (!(mod == 0 && (rm & 0x07) == 5) &&
                 cpu_memory_base_register_uses_ss(decoded_rm)) {
                 return SEG_SS;
             }
